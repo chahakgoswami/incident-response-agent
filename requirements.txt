@@ -1,0 +1,3 @@
+# Core dependencies (all stdlib for Day 1 — no external packages needed)
+# Testing
+pytest>=7.4
