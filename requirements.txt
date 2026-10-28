@@ -1,3 +1,6 @@
-# Core dependencies (all stdlib for Day 1 — no external packages needed)
+# Core dependencies
 # Testing
 pytest>=7.4
+
+# Optional: real LLM calls (install manually if OPENAI_API_KEY is set)
+# openai>=1.0
