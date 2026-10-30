@@ -1,4 +1,6 @@
 # Core dependencies
+click>=8.1
+
 # Testing
 pytest>=7.4
 
