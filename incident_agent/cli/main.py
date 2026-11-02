@@ -13,6 +13,7 @@ import click
 from incident_agent.correlator import CorrelationEngine
 from incident_agent.mock_data import generate_incident_scenario
 from incident_agent.mock_data.scenario import ScenarioType
+from incident_agent.notifications import IncidentNotifier, SlackChannel
 from incident_agent.postmortem import PostMortemDrafter
 from incident_agent.rollback import ConfirmationGate, RollbackSuggester
 
@@ -123,6 +124,19 @@ def cli():
     default=False,
     help="Skip rollback suggestion step.",
 )
+@click.option(
+    "--slack-channel",
+    "slack_channel_name",
+    default="#incidents",
+    show_default=True,
+    help="Simulated Slack channel name for notifications.",
+)
+@click.option(
+    "--no-notify",
+    is_flag=True,
+    default=False,
+    help="Disable Slack-style notifications.",
+)
 def run(
     scenario_type: str,
     seed: Optional[int],
@@ -133,6 +147,8 @@ def run(
     force_mock: bool,
     no_postmortem: bool,
     no_rollback: bool,
+    slack_channel_name: str,
+    no_notify: bool,
 ) -> None:
     """Run a full simulated incident through the response pipeline."""
     audit_path = Path(audit_log_path)
@@ -142,6 +158,10 @@ def run(
     service_list = None
     if services:
         service_list = [s.strip() for s in services.split(",") if s.strip()]
+
+    # ---- Set up Slack-style notifier ----
+    slack_ch = SlackChannel(slack_channel_name, output_stream=sys.stdout)
+    notifier = IncidentNotifier(channel=slack_ch)
 
     # ---- Generate scenario ----
     stype = ScenarioType(scenario_type)
@@ -189,6 +209,10 @@ def run(
         _print_separator(f"Incident {idx}/{len(summaries)}: {summary.incident_id}")
         _print_correlation_report(summary)
 
+        # Post correlation notification
+        if not no_notify:
+            notifier.notify_correlation(summary)
+
         incident_audit: dict = {
             "incident_id": summary.incident_id,
             "severity": summary.severity.value,
@@ -205,6 +229,11 @@ def run(
             drafter = PostMortemDrafter(force_mock=force_mock)
             postmortem = drafter.draft(summary)
             _print_postmortem(postmortem)
+
+            # Post post-mortem notification
+            if not no_notify:
+                notifier.notify_postmortem(postmortem)
+
             incident_audit["postmortem"] = {
                 "title": postmortem.title,
                 "model_used": postmortem.model_used,
@@ -242,10 +271,23 @@ def run(
                             f"    {i}. [{cmd.risk_level.upper()}] {cmd.description}\n"
                             f"       $ {cmd.command}"
                         )
+
+            # Post rollback notification
+            if not no_notify:
+                notifier.notify_rollback(result)
         else:
             click.echo("\n[4/4] Rollback suggestion skipped (--no-rollback).")
 
         audit_incidents.append(incident_audit)
+
+    # Show notification summary
+    if not no_notify:
+        click.echo(
+            click.style(
+                f"\n[Slack] {len(slack_ch.messages)} notification(s) posted to {slack_channel_name}",
+                fg="magenta",
+            )
+        )
 
     # ---- Write audit log ----
     audit_entry = {
@@ -334,7 +376,7 @@ def show_audit(audit_log_path: str, last: int) -> None:
             rollback = inc.get("rollback") or {}
             rb_status = rollback.get("status", "none")
             click.echo(
-                f"         • {inc_id} [{sev.upper()}] services={svcs} rollback={rb_status}"
+                f"         \u2022 {inc_id} [{sev.upper()}] services={svcs} rollback={rb_status}"
             )
     click.echo(f"{'─'*60}\n")
 
