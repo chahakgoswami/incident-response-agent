@@ -1,0 +1,68 @@
+# Incident Response Agent — Configuration File
+# Copy this file to your working directory and edit as needed.
+# All values shown are the built-in defaults.
+
+# ---------------------------------------------------------------------------
+# Correlation engine tuning
+# ---------------------------------------------------------------------------
+[correlation]
+# Width of the sliding correlation time window (minutes).
+window_minutes = 5
+
+# Minimum number of signals in a window+service bucket to form an incident.
+min_signals = 1
+
+# Span duration above which a trace span is treated as a latency signal (ms).
+latency_error_threshold_ms = 800.0
+
+# ---------------------------------------------------------------------------
+# Post-mortem LLM settings
+# ---------------------------------------------------------------------------
+[postmortem]
+# OpenAI-compatible model name (used when OPENAI_API_KEY is set).
+model = "gpt-4o-mini"
+
+# Force the local mock/stub even if OPENAI_API_KEY is set.
+force_mock = false
+
+# Maximum number of contributing signals to include in the LLM prompt.
+max_signals_in_prompt = 10
+
+# ---------------------------------------------------------------------------
+# Rollback suggester settings
+# ---------------------------------------------------------------------------
+[rollback]
+# Maximum number of rollback suggestions to present.
+top_n = 3
+
+# Auto-confirm the top rollback suggestion (DANGEROUS — only for testing).
+auto_confirm = false
+
+# ---------------------------------------------------------------------------
+# Extra rollback commands (extends the built-in library)
+# Repeat [[rollback.extra_commands]] blocks to add multiple commands.
+# ---------------------------------------------------------------------------
+# [[rollback.extra_commands]]
+# command_id   = "my-custom-rollback"
+# description  = "Custom rollback for my-service"
+# command      = "kubectl rollout undo deployment/my-service -n production"
+# pattern_tags = ["error_surge", "my-service"]
+# service_hint = "my-service"
+# risk_level   = "low"
+
+# ---------------------------------------------------------------------------
+# Slack-style notifications
+# ---------------------------------------------------------------------------
+[notifications]
+# Enable or disable in-process Slack-style notifications.
+enabled = true
+
+# Default simulated Slack channel name.
+slack_channel = "#incidents"
+
+# ---------------------------------------------------------------------------
+# Audit logging
+# ---------------------------------------------------------------------------
+[audit]
+# Path to the JSON audit log file.
+log_path = "incident_audit.json"
